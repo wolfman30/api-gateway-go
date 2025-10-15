@@ -6,8 +6,16 @@ import (
 	"net/http"
 
 	"github.com/google/uuid"
+	"github.com/wolfman30/api-gateway-go/internal/bus"
 	"github.com/wolfman30/api-gateway-go/internal/models"
 )
+
+var publisher *bus.Publisher
+
+// SetPublisher injects the SQS publisher for handlers to use.
+func SetPublisher(p *bus.Publisher) {
+	publisher = p
+}
 
 // CreateReel handles POST /reels
 func CreateReel(w http.ResponseWriter, r *http.Request) {
@@ -26,7 +34,15 @@ func CreateReel(w http.ResponseWriter, r *http.Request) {
 	// Generate a unique run ID
 	runID := uuid.New().String()
 
-	// TODO: Publish command to SQS for orchestrator pickup
+	// Publish command to SQS for orchestrator pickup
+	if publisher != nil {
+		if err := publisher.PublishReelCommand(runID, req); err != nil {
+			log.Printf("Failed to publish command: %v", err)
+			http.Error(w, "Failed to enqueue reel command", http.StatusInternalServerError)
+			return
+		}
+	}
+
 	log.Printf("Accepted reel request for project %s, runID=%s", req.ProjectID, runID)
 
 	// Return 202 Accepted with runID
