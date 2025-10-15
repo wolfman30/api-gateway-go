@@ -1,12 +1,28 @@
 package bus
 
 import (
+	"context"
 	"testing"
+
+	"github.com/aws/aws-sdk-go-v2/service/sqs"
 )
+
+// MockSQSClient is a mock implementation of SQSClient for testing.
+type MockSQSClient struct {
+	SendMessageFunc func(ctx context.Context, params *sqs.SendMessageInput, optFns ...func(*sqs.Options)) (*sqs.SendMessageOutput, error)
+}
+
+func (m *MockSQSClient) SendMessage(ctx context.Context, params *sqs.SendMessageInput, optFns ...func(*sqs.Options)) (*sqs.SendMessageOutput, error) {
+	if m.SendMessageFunc != nil {
+		return m.SendMessageFunc(ctx, params, optFns...)
+	}
+	return &sqs.SendMessageOutput{}, nil
+}
 
 func TestNewPublisher(t *testing.T) {
 	queueURL := "https://sqs.us-east-1.amazonaws.com/123456789012/test-queue"
-	pub := NewPublisher(queueURL)
+	mockClient := &MockSQSClient{}
+	pub := NewPublisher(queueURL, mockClient)
 
 	if pub == nil {
 		t.Fatal("Expected non-nil publisher")
@@ -15,10 +31,15 @@ func TestNewPublisher(t *testing.T) {
 	if pub.queueURL != queueURL {
 		t.Errorf("Expected queueURL %s, got %s", queueURL, pub.queueURL)
 	}
+
+	if pub.sqsClient == nil {
+		t.Error("Expected non-nil sqsClient")
+	}
 }
 
 func TestPublishReelCommand(t *testing.T) {
-	pub := NewPublisher("https://sqs.us-east-1.amazonaws.com/123456789012/test-queue")
+	mockClient := &MockSQSClient{}
+	pub := NewPublisher("https://sqs.us-east-1.amazonaws.com/123456789012/test-queue", mockClient)
 
 	payload := map[string]string{
 		"projectId": "proj_123",
