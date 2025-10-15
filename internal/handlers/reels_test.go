@@ -85,3 +85,50 @@ func TestCreateReel_MethodNotAllowed(t *testing.T) {
 		t.Errorf("Expected status %d for wrong method, got %d", http.StatusMethodNotAllowed, rec.Code)
 	}
 }
+
+func TestGetRunStatus(t *testing.T) {
+	runID := "test-run-123"
+	req := httptest.NewRequest(http.MethodGet, "/runs/"+runID, nil)
+	rec := httptest.NewRecorder()
+
+	GetRunStatus(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Errorf("Expected status %d, got %d", http.StatusOK, rec.Code)
+	}
+
+	var resp models.RunStatusResponse
+	if err := json.NewDecoder(rec.Body).Decode(&resp); err != nil {
+		t.Fatalf("Failed to decode response: %v", err)
+	}
+
+	if resp.RunID != runID {
+		t.Errorf("Expected runID %s, got %s", runID, resp.RunID)
+	}
+
+	if resp.Status != "PENDING" {
+		t.Errorf("Expected status PENDING, got %s", resp.Status)
+	}
+}
+
+func TestGetRunStatus_MethodNotAllowed(t *testing.T) {
+	req := httptest.NewRequest(http.MethodPost, "/runs/test-run", nil)
+	rec := httptest.NewRecorder()
+
+	GetRunStatus(rec, req)
+
+	if rec.Code != http.StatusMethodNotAllowed {
+		t.Errorf("Expected status %d for wrong method, got %d", http.StatusMethodNotAllowed, rec.Code)
+	}
+}
+
+func TestGetRunStatus_MissingRunID(t *testing.T) {
+	req := httptest.NewRequest(http.MethodGet, "/runs/", nil)
+	rec := httptest.NewRecorder()
+
+	GetRunStatus(rec, req)
+
+	if rec.Code != http.StatusBadRequest {
+		t.Errorf("Expected status %d for missing runID, got %d", http.StatusBadRequest, rec.Code)
+	}
+}
