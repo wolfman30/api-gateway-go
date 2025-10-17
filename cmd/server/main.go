@@ -4,30 +4,39 @@ import (
 	"context"
 	"log"
 	"net/http"
-	"os"
 
-	"github.com/aws/aws-sdk-go-v2/config"
+	awsconfig "github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/sqs"
 	"github.com/wolfman30/api-gateway-go/internal/bus"
+	"github.com/wolfman30/api-gateway-go/internal/config"
 	"github.com/wolfman30/api-gateway-go/internal/handlers"
 )
 
 func main() {
+	ctx := context.Background()
+
+	// Load secrets from AWS Secrets Manager
+	secrets, err := config.LoadFromSecretsManager(ctx)
+	if err != nil {
+		log.Fatalf("Failed to load secrets: %v", err)
+	}
+	_ = secrets // Will be used for authentication/database connection
+
+	// Load environment configuration
+	envConfig := config.LoadEnvironmentConfig()
+	log.Printf("Running in environment: %s", envConfig.Environment)
+
 	// Load AWS configuration
-	cfg, err := config.LoadDefaultConfig(context.Background())
+	awsCfg, err := awsconfig.LoadDefaultConfig(ctx)
 	if err != nil {
 		log.Fatalf("Failed to load AWS config: %v", err)
 	}
 
 	// Create SQS client
-	sqsClient := sqs.NewFromConfig(cfg)
+	sqsClient := sqs.NewFromConfig(awsCfg)
 
-	// Initialize SQS publisher
-	queueURL := os.Getenv("SQS_QUEUE_URL")
-	if queueURL == "" {
-		queueURL = "https://sqs.us-east-1.amazonaws.com/123456789012/reel-commands" // stub
-	}
-	publisher := bus.NewPublisher(queueURL, sqsClient)
+	// Initialize SQS publisher with configured queue URL
+	publisher := bus.NewPublisher(envConfig.SqsQueueURL, sqsClient)
 	handlers.SetPublisher(publisher)
 
 	mux := http.NewServeMux()
@@ -40,7 +49,7 @@ func main() {
 		w.Write([]byte("OK"))
 	})
 
-	addr := ":8081"
+	addr := ":" + envConfig.ApiPort
 	log.Printf("Starting API gateway on %s", addr)
 	if err := http.ListenAndServe(addr, mux); err != nil {
 		log.Fatalf("Server failed: %v", err)
