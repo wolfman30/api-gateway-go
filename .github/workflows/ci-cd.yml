@@ -107,16 +107,24 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/develop' && github.event_name == 'push'
+    environment:
+      name: dev
+    env:
+      AWS_REGION: ${{ vars.AWS_REGION != '' && vars.AWS_REGION || 'us-east-2' }}
+      ENVIRONMENT: dev
+      CLUSTER_NAME: api-gateway-dev
+      SERVICE_NAME: api-gateway
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          role-to-assume: arn:aws:iam::422017356225:role/ai-twin-devops-dev
+          aws-region: ${{ env.AWS_REGION }}
+
       - name: Deploy to Dev
-        env:
-          AWS_REGION: us-east-1
-          ENVIRONMENT: dev
-          CLUSTER_NAME: api-gateway-dev
-          SERVICE_NAME: api-gateway
         run: |
           echo "Deploying API Gateway to Dev..."
           echo "Service deployed successfully"
@@ -129,6 +137,13 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/staging' && github.event_name == 'push'
+    environment:
+      name: staging
+    env:
+      AWS_REGION: ${{ vars.AWS_REGION != '' && vars.AWS_REGION || 'us-east-2' }}
+      ENVIRONMENT: staging
+      CLUSTER_NAME: api-gateway-staging
+      SERVICE_NAME: api-gateway
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -137,12 +152,13 @@ jobs:
         run: |
           go test -v -tags=staging ./...
 
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          role-to-assume: arn:aws:iam::422017356225:role/ai-twin-devops-staging
+          aws-region: ${{ env.AWS_REGION }}
+
       - name: Deploy to Staging
-        env:
-          AWS_REGION: us-east-1
-          ENVIRONMENT: staging
-          CLUSTER_NAME: api-gateway-staging
-          SERVICE_NAME: api-gateway
         run: |
           echo "Deploying API Gateway to Staging..."
           echo "Service deployed successfully"
@@ -155,6 +171,13 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    environment:
+      name: prod
+    env:
+      AWS_REGION: ${{ vars.AWS_REGION != '' && vars.AWS_REGION || 'us-east-2' }}
+      ENVIRONMENT: prod
+      CLUSTER_NAME: api-gateway-prod
+      SERVICE_NAME: api-gateway
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -163,12 +186,13 @@ jobs:
         run: |
           test -f bin/api-server || (echo "Binary not found" && exit 1)
 
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          role-to-assume: arn:aws:iam::422017356225:role/ai-twin-devops-prod
+          aws-region: ${{ env.AWS_REGION }}
+
       - name: Deploy to Production
-        env:
-          AWS_REGION: us-east-1
-          ENVIRONMENT: prod
-          CLUSTER_NAME: api-gateway-prod
-          SERVICE_NAME: api-gateway
         run: |
           echo "Deploying API Gateway to Production..."
           echo "Service deployed successfully"
